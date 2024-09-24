@@ -4,6 +4,7 @@ logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+<<<<<<< HEAD
 lerna-debug.log*
 .pnpm-debug.log*
 
@@ -118,3 +119,23 @@ dist
 .pnp.*
 
 # End of https://mrkandreev.name/snippets/gitignore-generator/#Node
+=======
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+>>>>>>> fcd2c19 (Add existing)
