@@ -37,19 +37,12 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: true, // Indicates if the product is available for sale
     },
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
-    updatedAt: {
-      type: Date,
-      default: Date.now,
-    },
+ 
   },
   { timestamps: true } // Automatically manage createdAt and updatedAt fields
 );
 
 // Create the Product model
-const Product = mongoose.model("Product", productSchema);
+export const Product = mongoose.model("Product", productSchema);
 
-module.exports = Product;
+

@@ -33,3 +33,14 @@ export const verifyjwt = asyncHandler(async (req, _, next) => {
     throw new apiError(401, error?.message || "Invalid access token");
   }
 });
+
+
+export const authorizeAdmin = asyncHandler(async (req, _, next) => {
+  if(req.user && req.user.isAdmin){
+    next();
+  }else{
+    res.status(401).send("not authorized as admin");
+  }
+});
+
+

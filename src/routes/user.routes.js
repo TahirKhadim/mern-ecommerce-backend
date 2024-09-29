@@ -8,12 +8,12 @@ import {
     updateUserInfo,
     loginUser,
     logoutuser,
-    verifyUser
+    verifyUser,getAllUser
   } from "../controllers/user.controller.js";
   import { Router } from "express";
   
   import { upload } from "../middleware/multer.middleware.js";
-  import { verifyjwt } from "../middleware/auth.middleware.js";
+  import { verifyjwt,authorizeAdmin } from "../middleware/auth.middleware.js";
   
   const router = Router();
   
@@ -39,8 +39,9 @@ import {
   
   router.route("/refresh-token").post(refreshAccessToken);
   router.route("/change-password").post(verifyjwt, changePassword);
-  router.route("/current-user").get(verifyjwt, getCurrentUser);
   router.route("/update-account").patch(verifyjwt, updateUserInfo);
+  router.route("/current-user").get(verifyjwt, getCurrentUser);
+  router.route("/all-users").get(verifyjwt, authorizeAdmin,getAllUser);
   
   router.route("/avatar").patch(verifyjwt, upload.single("avatar"), changeAvatar);
   router

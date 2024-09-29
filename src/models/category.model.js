@@ -22,19 +22,12 @@ const categorySchema = new mongoose.Schema(
       type: String, // URL for the category image
       trim: true,
     },
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
-    updatedAt: {
-      type: Date,
-      default: Date.now,
-    },
+   
   },
   { timestamps: true } // Automatically manage createdAt and updatedAt fields
 );
 
 // Create the Category model
-const Category = mongoose.model("Category", categorySchema);
+export const Category = mongoose.model("Category", categorySchema);
 
-module.exports = Category;
+

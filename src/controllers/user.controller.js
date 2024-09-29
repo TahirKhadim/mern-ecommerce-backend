@@ -38,28 +38,21 @@ const Register = asyncHandler(async (req, res) => {
   const { username, email, fullname, password, isAdmin } = req.body;
 
   // Validate required fields
-  if (
-    [username, email, fullname, password].some((field) => field?.trim() === "")
-  ) {
+  if ([username, email, fullname, password].some((field) => !field?.trim())) {
     throw new apiError(400, "All fields are required");
   }
 
   // Check for existing users
-  const existingUser = await User.findOne({
-    $or: [{ email }, { username }],
-  });
+  const existingUser = await User.findOne({ $or: [{ email }, { username }] });
 
   let verifyCode = Math.floor(100000 + Math.random() * 900000); // Generate the verification code
 
   // Handle existing user logic
   if (existingUser) {
     if (!existingUser.isVerified) {
-      // If the user exists but is not verified, resend the verification code
-      existingUser.verifyCode = verifyCode; // Update the verification code
-      existingUser.verifyCodeExpiry = new Date(Date.now() + 86400000); // Set new expiry
-      await existingUser.save(); // Save the updated user
-
-      // Send verification email
+      existingUser.verifyCode = verifyCode;
+      existingUser.verifyCodeExpiry = new Date(Date.now() + 86400000);
+      await existingUser.save();
       await sendVerificationEmail(existingUser.email, verifyCode);
       return res
         .status(200)
@@ -67,27 +60,31 @@ const Register = asyncHandler(async (req, res) => {
           new apiResponse(200, null, "Verification code sent to your email")
         );
     } else {
-      // If the user exists and is verified, return an error
       return res
         .status(400)
         .json(new apiResponse(400, null, "Email or username already exists"));
     }
   }
 
-  // Handle image uploads (if applicable)
-  const avatarlocalpath = req.files?.avatar[0]?.path;
-  const coverimagelocalpath = req.files?.coverimage[0]?.path;
-
-  if (!avatarlocalpath) {
+  // Handle image uploads
+  if (!req.files || !req.files.avatar || req.files.avatar.length === 0) {
     throw new apiError(400, "Avatar is required");
   }
 
-  const avatar = await uploadOnCloudinary(avatarlocalpath);
-  const coverimage = await uploadOnCloudinary(coverimagelocalpath);
+  const avatarlocalpath = req.files.avatar[0].path;
+  const coverimagelocalpath = req.files.coverimage
+    ? req.files.coverimage[0]?.path
+    : null;
 
-  if (!avatar) {
-    throw new apiError(400, "Avatar upload failed");
-  }
+  const avatar = await uploadOnCloudinary(avatarlocalpath).catch((err) => {
+    throw new apiError(400, "Avatar upload failed: " + err.message);
+  });
+
+  const coverimage = coverimagelocalpath
+    ? await uploadOnCloudinary(coverimagelocalpath).catch((err) => {
+        throw new apiError(400, "Cover image upload failed: " + err.message);
+      })
+    : null;
 
   // Create new user
   const newUser = await User.create({
@@ -97,12 +94,11 @@ const Register = asyncHandler(async (req, res) => {
     email,
     avatar: avatar.url,
     coverimage: coverimage?.url || "",
-    verifyCode: verifyCode, // Use generated verification code
-    verifyCodeExpiry: new Date(Date.now() + 86400000), // Set expiry to 1 day
-    isAdmin: isAdmin && false, // Set isAdmin based on verification status
+    verifyCode,
+    verifyCodeExpiry: new Date(Date.now() + 86400000),
+    isAdmin: isAdmin || false,
   });
 
-  // Send verification email to new users
   await sendVerificationEmail(newUser.email, verifyCode);
 
   const createdUser = await User.findById(newUser._id).select(
@@ -113,53 +109,51 @@ const Register = asyncHandler(async (req, res) => {
     throw new apiError(400, "User not created");
   }
 
-  console.log("Generated Verification Code:", verifyCode);
-
   return res
     .status(200)
     .json(
       new apiResponse(
         200,
         createdUser,
-        "Verification code sent to your email successfully registered successfully"
+        "User registered successfully. Verification code sent to your email."
       )
     );
 });
 
 const verifyUser = asyncHandler(async (req, res) => {
-  const { email, verfiyCode } = req.body;
+  const { verifyCode } = req.body;
 
-  // Find the user by email
-  const user = await User.findOne({ email });
+  // Find the user by the verification code
+  const user = await User.findOne({ verifyCode });
   if (!user) {
-    throw new apiError(404, "User not found");
+    throw new apiError(404, "Invalid verification code or user not found");
   }
 
   // Check if verification code is correct and not expired
-  if (user.verfiyCode !== verfiyCode || user.verifyCodeExpiry < Date.now()) {
+  if (user.verifyCodeExpiry < Date.now()) {
     throw new apiError(400, "Invalid or expired verification code");
   }
 
-  // Update user status to verified (assuming you have a 'isVerified' field)
+  // Update user status to verified
   user.isVerified = true;
-  user.verfiyCode = undefined; // Clear the verification code
+  user.verifyCode = undefined; // Clear the verification code
   user.verifyCodeExpiry = undefined; // Clear the expiry time
   await user.save();
 
-  return res
-    .status(200)
-    .json(new apiResponse(200, {}, "User verified successfully"));
+  return res.status(200).json(new apiResponse(200, {}, "User verified successfully"));
 });
 
 const loginUser = asyncHandler(async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    console.log(req.body)
+
     if (!username || !password) {
       throw new apiError(400, "Username and password are required");
     }
 
-    const user = await User.findOne({ username  });
+    const user = await User.findOne({ username });
     if (!user) {
       throw new apiError(404, "User not found");
     }
@@ -167,7 +161,6 @@ const loginUser = asyncHandler(async (req, res) => {
     if (!user.isVerified) {
       throw new apiError(400, "Verification needed before signing in");
     }
-
 
     const isPasswordValid = await user.isPasswordCorrect(password);
     if (!isPasswordValid) {
@@ -196,6 +189,13 @@ const loginUser = asyncHandler(async (req, res) => {
         message: "Login successful",
         accesstoken,
         refreshtoken,
+        user: {
+          _id: user._id,
+          fullname: user.fullname,
+          username: user.username,
+          email: user.email,
+          // Add other user fields as necessary
+        },
       });
   } catch (error) {
     console.error("Login error:", error);
@@ -284,6 +284,16 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     "username fullname email avatar coverimage"
   ); // Add fields as needed
 
+  return res
+    .status(200)
+    .json(new apiResponse(200, user, "User retrieved successfully"));
+});
+
+const getAllUser = asyncHandler(async (req, res) => {
+  
+
+  // Fetch user from the database (assuming a User model)
+  const user = await User.find({})
   return res
     .status(200)
     .json(new apiResponse(200, user, "User retrieved successfully"));
@@ -426,4 +436,5 @@ export {
   updateUserInfo,
   refreshAccessToken,
   verifyUser,
+  getAllUser
 };

@@ -42,13 +42,11 @@ const userSchema = new Schema(
       type: Boolean,
       default: false, // Default to false for regular users
     },
-    verfiyCode: {
+    verifyCode: {
       type: String,
-      
     },
     verifyCodeExpiry: {
       type: Date,
-      
     },
     isVerified: {
       type: Boolean,
